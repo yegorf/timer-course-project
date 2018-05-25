@@ -1,9 +1,12 @@
 #include <iostream>
 #include <Windows.h>
+#include <string>
+#include <intrin.h>
+#include <conio.h>
 using namespace std;
 
 #define title "Хохлов Е.С. КИз-16"
-#define temp 1000
+int temp = 500;
 
 
 HDC hDC;
@@ -28,6 +31,76 @@ void SetPosition(int x, int y)
 	SetConsoleCursorPosition(Handle, coord);
 }
 
+struct cpuid_regs
+{
+	DWORD   Eax;
+	DWORD   Ebx;
+	DWORD   Ecx;
+	DWORD   Edx;
+};
+
+string SplitIntoChars(DWORD Value)
+{
+	string Str;
+	char const * pCursor = (char const *)&Value;
+	for (int i = 0; i < sizeof(Value); ++i) {
+		Str += pCursor[i];
+	}
+	return Str;
+}
+
+string GetCpuVendorSubstring(DWORD Eax)
+{
+	cpuid_regs Regs;
+	__cpuid((int *)&Regs, Eax);
+	string Str;
+	Str += SplitIntoChars(Regs.Eax);
+	Str += SplitIntoChars(Regs.Ebx);
+	Str += SplitIntoChars(Regs.Ecx);
+	Str += SplitIntoChars(Regs.Edx);
+	return Str;
+}
+
+string GetCpuVendorString()
+{
+	string VendorString;
+	cpuid_regs Regs;
+	__cpuid((int *)&Regs, 0x80000000);
+	if (Regs.Eax >= 0x80000004)
+	{
+		VendorString =
+			GetCpuVendorSubstring(0x80000002) +
+			GetCpuVendorSubstring(0x80000003) +
+			GetCpuVendorSubstring(0x80000004)
+			;
+	}
+	return VendorString;
+}
+
+
+void SetInterval()
+{
+	cout << "Выберите интервал таймера" << endl;
+	cout << "1)165" << endl;
+	cout << "2)500" << endl;
+	cout << "3)1065" << endl;
+	char c = _getch();
+
+	switch (c)
+	{
+	case '1':
+		temp = 165;
+		break;
+	case '2':
+		temp = 500;
+		break;
+	case '3':
+		temp = 1065;
+		break;
+	}
+	system("cls");
+}
+
 int main()
 {
 	SetConsoleOutputCP(1251);
@@ -38,7 +111,6 @@ int main()
 	GetHdc();
 	GetHandle();
 	MoveWindow(hWnd, 300, 300, 400, 400, TRUE);
-	system("color F0");
 
 	MSG msg;
 	int x = 21;
@@ -48,9 +120,11 @@ int main()
 	bool up = false;
 	unsigned count = 0;
 	
+
+	SetInterval();
+
 	SetTimer(NULL, 0, temp, (TIMERPROC)&Print);
-	SetConsoleTextAttribute(Handle, FOREGROUND_GREEN 
-		| BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+	SetConsoleTextAttribute(Handle, FOREGROUND_GREEN );
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
 		SetPosition(x, y);
@@ -76,9 +150,14 @@ int main()
 		count++; 
 	}
 
-	cout <<endl<< "Ты вышел из таймера" << endl;
-	system("pause");
+	string name = GetCpuVendorString();
+	cout << endl << endl << endl << endl << endl << endl;
+	cout << "Название процессора:" << endl;
+	cout << name << endl;
+	_getch();
 	return 0;
 }
+
+
 
 
