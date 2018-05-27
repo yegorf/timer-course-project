@@ -6,15 +6,25 @@
 #include <conio.h>
 #include <fstream>
 #include <time.h>
+#include "Processor.h"
 using namespace std;
 #define title "Хохлов Е.С. КИз-16"
 
+enum TimerType { user, multimedia }type;
+
 clock_t start, endd;
 int temp = 500;
+double real[11];
+char c;
+int col = 0;
+int x = 21;
+int y = 6;
 
 HDC hDC;
 HWND hWnd;
 HANDLE Handle;
+Processor CP;
+UINT uTimerID;
 
 void GetHwnd(){ hWnd = GetConsoleWindow(); }
 void GetHdc(){ hDC = GetDC(hWnd); }
@@ -29,67 +39,11 @@ void SetPosition(int x, int y)
 	coord.Y = y;
 	SetConsoleCursorPosition(Handle, coord);
 }
-struct cpuid_regs
-{
-	DWORD   Eax;
-	DWORD   Ebx;
-	DWORD   Ecx;
-	DWORD   Edx;
-};
-
-string SplitIntoChars(DWORD Value)
-{
-	string Str;
-	char const * pCursor = (char const *)&Value;
-	for (int i = 0; i < sizeof(Value); ++i) {
-		Str += pCursor[i];
-	}
-	return Str;
-}
-
-string GetCpuVendorSubstring(DWORD Eax)
-{
-	cpuid_regs Regs;
-	__cpuid((int *)&Regs, Eax);
-	string Str;
-	Str += SplitIntoChars(Regs.Eax);
-	Str += SplitIntoChars(Regs.Ebx);
-	Str += SplitIntoChars(Regs.Ecx);
-	Str += SplitIntoChars(Regs.Edx);
-	return Str;
-}
-
-string GetCpuVendorString()
-{
-	string VendorString;
-	cpuid_regs Regs;
-	__cpuid((int *)&Regs, 0x80000000);
-	if (Regs.Eax >= 0x80000004)
-	{
-		VendorString =
-			GetCpuVendorSubstring(0x80000002) +
-			GetCpuVendorSubstring(0x80000003) +
-			GetCpuVendorSubstring(0x80000004)
-			;
-	}
-	return VendorString;
-}
-void ProcessorName()
-{
-	string name = GetCpuVendorString();
-	cout << endl << endl << endl << endl << endl << endl;
-	cout << "Название процессора:" << endl;
-	cout << name << endl;
-}
 
 void CALLBACK Print(HWND hwnd, UINT uMsg, UINT timerId, DWORD dwTime)
 {
 	cout << "A";
 }
-
-int col = 0;
-int x = 21;
-int y = 6;
 
 void CALLBACK PrintMultimedia(UINT uTimerID, UINT uMsg,
 	DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2)
@@ -114,12 +68,10 @@ void CALLBACK PrintMultimedia(UINT uTimerID, UINT uMsg,
 		if (col == 11)
 		{
 			timeKillEvent(uTimerID);
-			ProcessorName();
+			CP.ProcessorName();
 		}
 		col++;
 }
-
-
 
 void SetInterval()
 {
@@ -144,15 +96,24 @@ void SetInterval()
 	system("cls");
 }
 
-
-
 void WriteFile(int col, double *mas)
 {
 	ofstream f;
 	string name;
-	if (temp == 165) { name = "Info165.txt"; }
-	if (temp == 500) { name = "Info500.txt"; }
-	if (temp == 1065) { name = "Info1065.txt"; }
+
+	if (type == user)
+	{
+		if (temp == 165) { name = "Results/User165.txt"; }
+		if (temp == 500) { name = "Results/User500.txt"; }
+		if (temp == 1065) { name = "Results/User1065.txt"; }
+	}
+	else
+	{
+		if (temp == 165) { name = "Results/Media165.txt"; }
+		if (temp == 500) { name = "Results/Media500.txt"; }
+		if (temp == 1065) { name = "Results/Media1065.txt"; }
+	}
+
 	f.open(name);
 
 	for (int i = 1; i < col; i++)
@@ -164,20 +125,50 @@ void WriteFile(int col, double *mas)
 
 }
 
+void RunUserTimer()
+{
+	MSG msg;
+	unsigned count = 0;
 
-UINT uTimerID;
-//void Start()
-//{
-//	uTimerID = timeSetEvent(temp, temp, PrintMultimedia, 0, TIME_PERIODIC);
-//	timeKillEvent(uTimerID);
-//}
+	SetTimer(NULL, 0, temp, (TIMERPROC)&Print);
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
 
-//void Kill()
-//{
-//	if(col==11)
-//	
-//}
+		SetPosition(x, y);
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 
+		if (count < 3 || count > 6)
+		{
+			y += 1;
+		}
+		if (count >= 3 && count < 6)
+		{
+			x += 2;
+		}
+		if (count == 6)
+		{
+			y -= 1;
+			x += 2;
+		}
+		if (count == 11)
+			break;
+
+		real[count] = (double)(start - endd);
+		count++;
+	}
+	CP.ProcessorName();
+	WriteFile(count, real);
+}
+
+void SetTimerType()
+{
+	cout << "Выберете тип таймера" << endl;
+	cout << "1)Таймер пользователя" << endl;
+	cout << "2)Мультимедийный таймер" << endl;
+	c = _getch();
+	system("cls");
+}
 
 int main()
 {
@@ -189,57 +180,18 @@ int main()
 	GetHdc();
 	GetHandle();
 	MoveWindow(hWnd, 300, 300, 400, 400, TRUE);
-
-	MSG msg;
-	char c;
-	unsigned count = 0;
-	double *real = new double[11];
 	SetConsoleTextAttribute(Handle, FOREGROUND_GREEN );
-
-
-	cout << "Выберете тип таймера" << endl;
-	cout << "1)Таймер пользователя" << endl;
-	cout << "2)Мультимедийный таймер" << endl;
-	c = _getch();
-	system("cls");
-
+	SetTimerType();
 	SetInterval();
 
 	if (c == '1')
 	{
-		SetTimer(NULL, 0, temp, (TIMERPROC)&Print);
-		while (GetMessage(&msg, NULL, 0, 0))
-		{
-
-			SetPosition(x, y);
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-
-			if (count < 3 || count > 6)
-			{
-				y += 1;
-			}
-			if (count >= 3 && count < 6)
-			{
-				x += 2;
-			}
-			if (count == 6)
-			{
-				y -= 1;
-				x += 2;
-			}
-			if (count == 11)
-				break;
-
-			real[count] = (double)(start - endd);
-			count++;
-		}	
-	ProcessorName();
-	WriteFile(count, real);
+		type = user;
+		RunUserTimer();
 	}
-
 	else
 	{
+		type = multimedia;
 		uTimerID = timeSetEvent(temp, temp, PrintMultimedia, 0, TIME_PERIODIC);
 	}
 
